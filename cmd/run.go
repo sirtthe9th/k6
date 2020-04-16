@@ -46,6 +46,7 @@ import (
 	"github.com/loadimpact/k6/lib"
 	"github.com/loadimpact/k6/lib/consts"
 	"github.com/loadimpact/k6/loader"
+	"github.com/loadimpact/k6/plugin"
 	"github.com/loadimpact/k6/ui"
 	"github.com/loadimpact/k6/ui/pb"
 )
@@ -108,6 +109,22 @@ a commandline interface for interacting with it.`,
 		)
 		printBar(initBar)
 
+		// Load plugins
+		cliConf, err := getConfig(cmd.Flags())
+		if err != nil {
+			return err
+		}
+
+		plugins := []plugin.JavaScriptPlugin{}
+		for _, pluginPath := range cliConf.Plugins {
+			jsPlugin, err := lib.LoadPlugin(pluginPath)
+			if err != nil {
+				return err
+			}
+
+			plugins = append(plugins, jsPlugin)
+		}
+
 		// Create the Runner.
 		pwd, err := os.Getwd()
 		if err != nil {
@@ -132,10 +149,6 @@ a commandline interface for interacting with it.`,
 
 		modifyAndPrintBar(initBar, pb.WithConstProgress(0, "options"))
 
-		cliConf, err := getConfig(cmd.Flags())
-		if err != nil {
-			return err
-		}
 		conf, err := getConsolidatedConfig(afero.NewOsFs(), cliConf, r)
 		if err != nil {
 			return err
