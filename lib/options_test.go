@@ -458,6 +458,11 @@ func TestOptionsEnv(t *testing.T) {
 			"true":  null.BoolFrom(true),
 			"false": null.BoolFrom(false),
 		},
+		{"Plugins", "K6_PLUGINS"}: {
+			"":              []string{},
+			"foo.so":        []string{"foo.so"},
+			"foo.so,bar.so": []string{"foo.so", "bar.so"},
+		},
 		// Thresholds
 		// External
 	}

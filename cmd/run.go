@@ -117,6 +117,7 @@ a commandline interface for interacting with it.`,
 		}
 
 		plugins := []plugin.JavaScriptPlugin{}
+		pluginNames := []string{}
 		for _, pluginPath := range cliConf.Plugins {
 			jsPlugin, err := lib.LoadJavaScriptPlugin(pluginPath)
 			if err != nil {
@@ -128,14 +129,9 @@ a commandline interface for interacting with it.`,
 				return err
 			}
 
-			// TODO: does this belong here, or is it the module package's responsibility?
-			mods := jsPlugin.GetModules()
-			for path, api := range mods {
-				// TODO: check if module already exists and if we're not overloading it
-				modules.PluginIndex[path] = api
-			}
-
+			modules.RegisterPluginModules(jsPlugin.GetModules())
 			plugins = append(plugins, jsPlugin)
+			pluginNames = append(pluginNames, jsPlugin.Name())
 		}
 
 		// Create the Runner.
@@ -265,7 +261,35 @@ a commandline interface for interacting with it.`,
 						logger.WithError(aerr).Warn("Error from API server")
 					}
 				}
-			}()
+			}
+
+			fprintf(stdout, "  execution: %s\n", ui.ValueColor.Sprint("local"))
+			fprintf(stdout, "    plugins: %s\n", ui.ValueColor.Sprint(strings.Join(pluginNames, ", ")))
+			fprintf(stdout, "     output: %s%s\n", ui.ValueColor.Sprint(out), ui.ExtraColor.Sprint(link))
+			fprintf(stdout, "     script: %s\n", ui.ValueColor.Sprint(filename))
+			fprintf(stdout, "\n")
+
+			duration := ui.GrayColor.Sprint("-")
+			iterations := ui.GrayColor.Sprint("-")
+			if conf.Duration.Valid {
+				duration = ui.ValueColor.Sprint(conf.Duration.Duration)
+			}
+			if conf.Iterations.Valid {
+				iterations = ui.ValueColor.Sprint(conf.Iterations.Int64)
+			}
+			vus := ui.ValueColor.Sprint(conf.VUs.Int64)
+			max := ui.ValueColor.Sprint(conf.VUsMax.Int64)
+
+			leftWidth := ui.StrWidth(duration)
+			if l := ui.StrWidth(vus); l > leftWidth {
+				leftWidth = l
+			}
+			durationPad := strings.Repeat(" ", leftWidth-ui.StrWidth(duration))
+			vusPad := strings.Repeat(" ", leftWidth-ui.StrWidth(vus))
+
+			fprintf(stdout, "    duration: %s,%s iterations: %s\n", duration, durationPad, iterations)
+			fprintf(stdout, "         vus: %s,%s max: %s\n", vus, vusPad, max)
+			fprintf(stdout, "\n")
 		}
 
 		printExecutionDescription(
@@ -364,8 +388,7 @@ a commandline interface for interacting with it.`,
 
 		// Teardown plugins
 		for _, jsPlugin := range plugins {
-			// TODO: does it really matter if teardown errors?
-			jsPlugin.Teardown()
+			_ = jsPlugin.Teardown()
 		}
 
 		if conf.Linger.Bool {
