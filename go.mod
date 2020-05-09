@@ -71,6 +71,7 @@ require (
 	github.com/zyedidia/highlight v0.0.0-20170330143449-201131ce5cf5
 	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 	golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7
+	golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f
 	golang.org/x/text v0.3.2
 	golang.org/x/time v0.0.0-20170927054726-6dc17368e09b
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect

@@ -38,6 +38,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/loadimpact/k6/api"
 	"github.com/loadimpact/k6/core"
@@ -116,22 +117,29 @@ a commandline interface for interacting with it.`,
 			return err
 		}
 
+		g, _ := errgroup.WithContext(context.Background())
+		if err != nil {
+			return err
+		}
+
 		plugins := []plugin.JavaScriptPlugin{}
 		pluginNames := []string{}
 		for _, pluginPath := range cliConf.Plugins {
-			jsPlugin, err := lib.LoadJavaScriptPlugin(pluginPath)
-			if err != nil {
-				return err
+			jsPlugin, pluginErr := lib.LoadJavaScriptPlugin(pluginPath)
+			if pluginErr != nil {
+				return pluginErr
 			}
 
-			// Run plugin setup and add it to the module tree
-			if err = jsPlugin.Setup(); err != nil {
-				return err
-			}
+			// Do the part that actually takes time in a runner group.
+			g.Go(jsPlugin.Setup)
 
 			modules.RegisterPluginModules(jsPlugin.GetModules())
 			plugins = append(plugins, jsPlugin)
 			pluginNames = append(pluginNames, jsPlugin.Name())
+		}
+
+		if err = g.Wait(); err != nil {
+			return err
 		}
 
 		// Create the Runner.
@@ -261,35 +269,7 @@ a commandline interface for interacting with it.`,
 						logger.WithError(aerr).Warn("Error from API server")
 					}
 				}
-			}
-
-			fprintf(stdout, "  execution: %s\n", ui.ValueColor.Sprint("local"))
-			fprintf(stdout, "    plugins: %s\n", ui.ValueColor.Sprint(strings.Join(pluginNames, ", ")))
-			fprintf(stdout, "     output: %s%s\n", ui.ValueColor.Sprint(out), ui.ExtraColor.Sprint(link))
-			fprintf(stdout, "     script: %s\n", ui.ValueColor.Sprint(filename))
-			fprintf(stdout, "\n")
-
-			duration := ui.GrayColor.Sprint("-")
-			iterations := ui.GrayColor.Sprint("-")
-			if conf.Duration.Valid {
-				duration = ui.ValueColor.Sprint(conf.Duration.Duration)
-			}
-			if conf.Iterations.Valid {
-				iterations = ui.ValueColor.Sprint(conf.Iterations.Int64)
-			}
-			vus := ui.ValueColor.Sprint(conf.VUs.Int64)
-			max := ui.ValueColor.Sprint(conf.VUsMax.Int64)
-
-			leftWidth := ui.StrWidth(duration)
-			if l := ui.StrWidth(vus); l > leftWidth {
-				leftWidth = l
-			}
-			durationPad := strings.Repeat(" ", leftWidth-ui.StrWidth(duration))
-			vusPad := strings.Repeat(" ", leftWidth-ui.StrWidth(vus))
-
-			fprintf(stdout, "    duration: %s,%s iterations: %s\n", duration, durationPad, iterations)
-			fprintf(stdout, "         vus: %s,%s max: %s\n", vus, vusPad, max)
-			fprintf(stdout, "\n")
+			}()
 		}
 
 		printExecutionDescription(
