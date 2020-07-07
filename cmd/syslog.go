@@ -23,9 +23,11 @@ type syslogHook struct {
 	SyslogRaddr      string
 	additionalParams [][2]string
 	ch               chan *logrus.Entry
+	limit            int
+	pushPeriod       time.Duration
 }
 
-func newSyslogHook(network, raddr string, additionalParams [][2]string) (*syslogHook, error) {
+func newSyslogHook(network, raddr string, limit int, additionalParams [][2]string) (*syslogHook, error) {
 	w, err := net.Dial(network, raddr)
 	if err != nil {
 		return nil, err
@@ -37,6 +39,8 @@ func newSyslogHook(network, raddr string, additionalParams [][2]string) (*syslog
 		SyslogRaddr:      raddr,
 		additionalParams: additionalParams,
 		ch:               make(chan *logrus.Entry, 1000),
+		limit:            limit,           // TODO configurable,
+		pushPeriod:       time.Second * 1, // TODO configurable,
 	}
 
 	go h.loop()
@@ -50,11 +54,11 @@ func newSyslogHook(network, raddr string, additionalParams [][2]string) (*syslog
 // buffers
 func (hook *syslogHook) loop() {
 	var (
-		size               = 5000 // TODO configurable
-		entrys             = make([]*logrus.Entry, size)
-		entriesBeingPushed = make([]*logrus.Entry, size)
+		entrys             = make([]*logrus.Entry, hook.limit)
+		entriesBeingPushed = make([]*logrus.Entry, hook.limit)
+		dropped            int
 		count              int
-		ticker             = time.NewTicker(time.Second) // TODO configurable
+		ticker             = time.NewTicker(hook.pushPeriod)
 		pushCh             = make(chan chan struct{})
 	)
 
@@ -62,10 +66,10 @@ func (hook *syslogHook) loop() {
 	go func() {
 		for ch := range pushCh {
 			entriesBeingPushed, entrys = entrys, entriesBeingPushed
-			oldCount := count
-			count = 0
+			oldCount, oldDropped := count, dropped
+			count, dropped = 0, 0
 			close(ch)
-			_ = hook.push(entriesBeingPushed[:oldCount]) // TODO print it on terminal ?!?
+			_ = hook.push(entriesBeingPushed[:oldCount], oldDropped) // TODO print it on terminal ?!?
 		}
 	}()
 
@@ -75,13 +79,12 @@ func (hook *syslogHook) loop() {
 			if !ok {
 				return
 			}
+			if count == hook.limit {
+				dropped++
+				continue
+			}
 			entrys[count] = entry
 			count++
-			if count == size {
-				ch := make(chan struct{})
-				pushCh <- ch
-				<-ch
-			}
 		case <-ticker.C:
 			ch := make(chan struct{})
 			pushCh <- ch
@@ -92,10 +95,26 @@ func (hook *syslogHook) loop() {
 
 var b bytes.Buffer //nolint:nochecknoglobals // TODO maybe use sync.Pool?
 
-func (hook *syslogHook) push(entrys []*logrus.Entry) error {
+func (hook *syslogHook) push(entrys []*logrus.Entry, dropped int) error {
 	b.Reset()
 	for _, entry := range entrys {
 		if _, err := msgFromEntry(entry, hook.additionalParams).WriteTo(&b); err != nil {
+			return err
+		}
+	}
+	if dropped != 0 {
+		_, err := msgFromEntry(
+			&logrus.Entry{
+				Data: logrus.Fields{
+					"droppedCount": dropped,
+				},
+				Level: logrus.WarnLevel,
+				Message: fmt.Sprintf("k6 dropped some packages because they were above the limit of %d/%s",
+					hook.limit, hook.pushPeriod),
+			},
+			hook.additionalParams,
+		).WriteTo(&b)
+		if err != nil {
 			return err
 		}
 	}
