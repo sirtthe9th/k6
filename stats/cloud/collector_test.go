@@ -111,7 +111,7 @@ func getSampleChecker(t *testing.T, expSamples <-chan []Sample) http.HandlerFunc
 			case *SampleDataAggregatedHTTPReqs:
 				receivedData, ok := receivedSample.Data.(*SampleDataAggregatedHTTPReqs)
 				assert.True(t, ok)
-				assert.True(t, expData.Tags.IsEqual(receivedData.Tags))
+				assert.Equal(t, expData.Tags, receivedData.Tags)
 				assert.True(t, expData.Time.Equal(receivedData.Time))
 				assert.Equal(t, expData.Type, receivedData.Type)
 				assert.Equal(t, expData.Values, receivedData.Values)
@@ -209,7 +209,7 @@ func runCloudCollectorTestCase(t *testing.T, minSamples int) {
 	tags := stats.IntoSampleTags(&tagMap)
 	expectedTagMap := tags.CloneTags()
 	expectedTagMap["url"], _ = tags.Get("name")
-	expectedTags := stats.IntoSampleTags(&expectedTagMap)
+	expectedTags, _ := stats.IntoSampleTags(&expectedTagMap).MarshalJSON()
 
 	expSamples := make(chan []Sample)
 	defer close(expSamples)
@@ -290,7 +290,7 @@ func runCloudCollectorTestCase(t *testing.T, minSamples int) {
 			Data: func(data interface{}) {
 				aggrData, ok := data.(*SampleDataAggregatedHTTPReqs)
 				assert.True(t, ok)
-				assert.True(t, aggrData.Tags.IsEqual(expectedTags))
+				assert.EqualValues(t, aggrData.Tags, expectedTags)
 				assert.Equal(t, collector.config.AggregationMinSamples.Int64, int64(aggrData.Count))
 				assert.Equal(t, "aggregated_trend", aggrData.Type)
 				assert.InDelta(t, now.UnixNano(), time.Time(aggrData.Time).UnixNano(), float64(collector.config.AggregationPeriod.Duration))

@@ -150,10 +150,10 @@ func NewSampleFromTrail(trail *httpext.Trail) *Sample {
 
 // SampleDataAggregatedHTTPReqs is used in aggregated samples for HTTP requests.
 type SampleDataAggregatedHTTPReqs struct {
-	Time   Timestamp         `json:"time"`
-	Type   string            `json:"type"`
-	Count  uint64            `json:"count"`
-	Tags   *stats.SampleTags `json:"tags,omitempty"`
+	Time   Timestamp       `json:"time"`
+	Type   string          `json:"type"`
+	Count  uint64          `json:"count"`
+	Tags   json.RawMessage `json:"tags,omitempty"`
 	Values struct {
 		Duration       AggregatedMetric `json:"http_req_duration"`
 		Blocked        AggregatedMetric `json:"http_req_blocked"`
@@ -220,7 +220,7 @@ func (am *AggregatedMetric) Calc(count float64) {
 	am.Avg = stats.D(am.sumD) / count
 }
 
-type aggregationBucket map[*stats.SampleTags][]*httpext.Trail
+type aggregationBucket map[string][]*httpext.Trail
 
 type durations []time.Duration
 

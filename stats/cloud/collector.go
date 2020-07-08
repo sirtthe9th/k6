@@ -221,7 +221,9 @@ func (c *Collector) Run(ctx context.Context) {
 				case <-c.stopSendingMetricsCh:
 					return
 				case <-aggregationTicker.C:
+					t := time.Now()
 					c.aggregateHTTPTrails(aggregationWaitPeriod)
+					logrus.WithField("t", time.Since(t)).Debug("http aggregation took")
 				case <-ctx.Done():
 					c.aggregateHTTPTrails(0)
 					c.flushHTTPTrails()
@@ -364,18 +366,9 @@ func (c *Collector) aggregateHTTPTrails(waitPeriod time.Duration) {
 		}
 
 		// Either use an existing subbucket key or use the trail tags as a new one
-		subBucketKey := trailTags
-		subBucket, ok := bucket[subBucketKey]
-		if !ok {
-			for sbTags, sb := range bucket {
-				if trailTags.IsEqual(sbTags) {
-					subBucketKey = sbTags
-					subBucket = sb
-					break
-				}
-			}
-		}
-		bucket[subBucketKey] = append(subBucket, trail)
+		b, _ := trailTags.MarshalJSON()
+
+		bucket[string(b)] = append(bucket[string(b)], trail)
 	}
 
 	// Which buckets are still new and we'll wait for trails to accumulate before aggregating
@@ -403,7 +396,7 @@ func (c *Collector) aggregateHTTPTrails(waitPeriod time.Duration) {
 			aggrData := &SampleDataAggregatedHTTPReqs{
 				Time: Timestamp(time.Unix(0, bucketID*aggrPeriod+aggrPeriod/2)),
 				Type: "aggregated_trend",
-				Tags: tags,
+				Tags: []byte(tags),
 			}
 
 			if c.config.AggregationSkipOutlierDetection.Bool {
