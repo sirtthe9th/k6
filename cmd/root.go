@@ -27,7 +27,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -193,55 +192,18 @@ func setupLoggers(logger *logrus.Logger, logFmt string, logOutput string) error 
 		if !strings.HasPrefix(logOutput, "syslog") {
 			return fmt.Errorf("unsupported log output `%s`", logOutput)
 		}
-		var protocol = "tcp"
-		var addr = "localhost:514"
-		var additionalParams [][2]string
-		var limit = 100
-		if logOutput != "syslog" {
-			parts := strings.SplitN(logOutput, "=", 2)
-			if parts[0] != "syslog" {
-				return fmt.Errorf("syslog  configuration should be in the form `syslog=host:port` but is `%s`", logOutput)
-			}
-			args := strings.Split(parts[1], ",")
-			addr = args[0]
-			// TODO use something better ... maybe
-			// https://godoc.org/github.com/kubernetes/helm/pkg/strvals
-			// atleast until https://github.com/loadimpact/k6/issues/926?
-			if len(args) > 1 {
-				for _, arg := range args[1:] {
-					paramParts := strings.SplitN(arg, "=", 2)
-					key := paramParts[0]
-					value := paramParts[1]
-					switch key {
-					case "additionalParams":
-						values := strings.Split(value, ";") // ; because , is already used
-
-						additionalParams = make([][2]string, len(values)-1)
-						for i, value := range values[1:] {
-							paramParts := strings.SplitN(value, "=", 2)
-							additionalParams[i] = [2]string{paramParts[0], paramParts[1]}
-						}
-					case "limit":
-						var err error
-						limit, err = strconv.Atoi(value)
-						if err != nil {
-							return fmt.Errorf("couldn't parse the syslog limit as a number %w", err)
-						}
-					default:
-						return fmt.Errorf("unknown syslog config key %s", key)
-					}
-				}
-			}
-		}
-
-		hook, err := newSyslogHook(protocol, addr, limit, additionalParams)
+		hook, err := syslogFromConfigLine(logOutput)
 		if err != nil {
+			return err
+		}
+		if err := hook.start(); err != nil {
 			return err
 		}
 		logger.AddHook(hook)
 		logger.SetOutput(ioutil.Discard) // don't output to anywhere else
-		logFmt = "raw"                   // TODO try do syslog formatting through a formatter and just write it to the net.Conn
-		noColor = true                   // disable color
+		// TODO try do syslog formatting through a formatter and just write it to the net.Conn
+		logFmt = "raw"
+		noColor = true // disable color
 	}
 
 	switch logFmt {
