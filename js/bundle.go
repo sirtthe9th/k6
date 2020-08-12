@@ -32,7 +32,6 @@ import (
 
 	"github.com/loadimpact/k6/js/common"
 	"github.com/loadimpact/k6/js/compiler"
-	jslib "github.com/loadimpact/k6/js/lib"
 	"github.com/loadimpact/k6/lib"
 	"github.com/loadimpact/k6/lib/consts"
 	"github.com/loadimpact/k6/loader"
@@ -275,12 +274,6 @@ func (b *Bundle) Instantiate(vuID int64) (bi *BundleInstance, instErr error) {
 func (b *Bundle) instantiate(rt *goja.Runtime, init *InitContext, vuID int64) error {
 	rt.SetFieldNameMapper(common.FieldNameMapper{})
 	rt.SetRandSource(common.NewRandSource())
-
-	if init.compatibilityMode == lib.CompatibilityModeExtended {
-		if _, err := rt.RunProgram(jslib.GetCoreJS()); err != nil {
-			return err
-		}
-	}
 
 	exports := rt.NewObject()
 	rt.Set("exports", exports)
