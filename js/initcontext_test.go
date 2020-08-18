@@ -286,12 +286,12 @@ func TestInitContextRequire(t *testing.T) {
 				return
 			}
 
-			bi, err := b.Instantiate()
+			bi, err := b.Instantiate(1)
 			if !assert.NoError(t, err, "instance error") {
 				return
 			}
 
-			val, err := bi.Default(goja.Undefined())
+			val, err := bi.exports["default"](nil)
 			if !assert.NoError(t, err) {
 				return
 			}
