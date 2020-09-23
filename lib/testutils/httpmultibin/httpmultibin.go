@@ -234,6 +234,8 @@ func NewHTTPMultiBin(t testing.TB) *HTTPMultiBin {
 	err = http2.ConfigureServer(http2Srv.Config, &http2.Server{
 		IdleTimeout: 30,
 	})
+	// Fails golangci-lint with 'staticcheck SA4001: &*x will be simplified to x. It will not copy x.'
+	// nolint: staticcheck
 	http2Srv.TLS = &(*tlsConfig) // copy it
 	http2Srv.TLS.NextProtos = []string{http2.NextProtoTLS}
 	require.NoError(t, err)

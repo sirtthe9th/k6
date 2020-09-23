@@ -45,12 +45,12 @@ type bridgeTestMethodsType struct{}
 
 func (bridgeTestMethodsType) ExportedFn() {}
 
-//lint:ignore U1000 needed for the actual test to check that it won't be seen
+// nolint: unused
 func (bridgeTestMethodsType) unexportedFn() {}
 
 func (*bridgeTestMethodsType) ExportedPtrFn() {}
 
-//lint:ignore U1000 needed for the actual test to check that it won't be seen
+// nolint: unused
 func (*bridgeTestMethodsType) unexportedPtrFn() {}
 
 type bridgeTestOddFieldsType struct {

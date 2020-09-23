@@ -160,7 +160,7 @@ func TestOptions(t *testing.T) {
 		})
 	})
 	t.Run("TLSVersion", func(t *testing.T) {
-		versions := TLSVersions{Min: tls.VersionSSL30, Max: tls.VersionTLS12}
+		versions := TLSVersions{Min: tls.VersionSSL30, Max: tls.VersionTLS12} // nolint: staticcheck
 		opts := Options{}.Apply(Options{TLSVersion: &versions})
 
 		assert.NotNil(t, opts.TLSVersion)
