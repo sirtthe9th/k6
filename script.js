@@ -5,3 +5,5 @@ export default function() {
   http.get('http://test.k6.io');
   sleep(1);
 }
+
+woohoo
