@@ -26,6 +26,10 @@ vu
 Provides information about the currently executing VU.
 
 * `vu.id()`
+a
+a
+a
+a
   
   Returns the VU's numeric ID.
 
